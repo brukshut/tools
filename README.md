@@ -45,3 +45,12 @@ variable "private_subnets" {
   }
 }
 ```
+
+## make_cert.sh
+
+Generates a 4096 bit rsa key, a certificate signing request and a self signed certificate. Requires a common name.
+
+```
+[brukbook.local:~] brukshut% ./make_cert.sh
+Usage: ./make_cert.sh -c [commonname]
+```
