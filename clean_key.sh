@@ -1,42 +1,53 @@
 #!/bin/bash
 
 ##
-## peacefully update offending key from .ssh/known_hosts
-## if ip address has changed, re-add new key quietly
+## clean_key.sh [hostname]
+## safely update stale ssh keys in your known_hosts
 ##
 PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
+## functions
+function die { echo "$*" 1>&2 && exit 1; }
+
 function remove_key {
-  KNOWN_HOSTS=${HOME}/.ssh/known_hosts
-  local HOST=$1
-  if [[ $(ssh-keygen -F $HOST) ]]; then
-    printf "Removing %s\n" $HOST
-    ssh-keygen -q -f $KNOWN_HOSTS -R $HOST &>/dev/null
-  fi  
+  local host=$1
+  local known_hosts=$2
+  [[ $(ssh-keygen -F $host) ]] &&
+    ( printf "Removing %s\n" $host
+      ssh-keygen -q -f $known_hosts -R $host &>/dev/null )
 }
  
 function scrub_known_hosts {
-  local HOST=${1%%.*} && local DOMAIN=${1##${HOST}.}
-  if [ -e $KNOWN_HOSTS ]; then 
-    if [ -z $DOMAIN ]; then
-      remove_key $HOST 
-    else
-      remove_key $1
-      IP=$(host $1 | awk {'print $4'})
-      [ -z $IP ] && remove_key $IP
-    fi
-  fi
+  local host=${1%%.*}
+  local domain=${1##${host}.}
+  local known_hosts=$2
+  ## remove hostname or fqdn, but not both
+  [[ -z $domain ]] && remove_key $1 $known_hosts ||
+    remove_key $1 $known_hosts
+  ## remove PTR if found
+  local ipaddr=$(host $1 | awk {'print $4'})
+  [[ -z $ipaddr ]] && remove_key $ipaddr
 }  
 
 function add_key {
   ## re-add changed key
-  ssh -q -oStrictHostKeyChecking=no $1 "exit"
+  local host=$1
+  ssh -q -oStrictHostKeyChecking=no $host "exit"
 }
 
-## usage
-USAGE="Usage: $0 [hostname]"
-[ $# == 1 ] || { echo $USAGE; exit 1; }
+## end functions
+
+## main
+
+## require hostname
+usage="usage: $0 [hostname]"
+[[ $# == 1 ]] || { echo $usage; exit 1; }
 
 ## scrub hostname from known_hosts
-scrub_known_hosts $1
-add_key $1
+known_hosts=${HOME}/.ssh/known_hosts
+
+[[ ! -e $known_hosts ]] && die "known_hosts not found" ||
+  ( scrub_known_hosts $1 $known_hosts
+    add_key $1 )
+
+## end main
