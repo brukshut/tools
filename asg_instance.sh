@@ -9,7 +9,7 @@ export AWS_DEFAULT_REGION="us-west-1"
 ## FUNCTIONS
 function die { echo "$*" 1>&2 && exit 1; }
 
-function usage { printf "%s\n" "Usage: $0 [-c] [-n] [-t]" ; exit 1; }
+function usage { printf "%s\n" "Usage: $0 [-c] [-n] [-p] [-t]" ; exit 1; }
 
 function get_instance_id {
   local asg_name=$1
@@ -21,6 +21,14 @@ function get_public_dns {
   local instance_id=$1
   local public_dns=$(aws ec2 describe-instances --instance-id=${instance_id} | jq -r .Reservations[].Instances[].PublicDnsName)
   [[ ! -z $public_dns ]] && echo $public_dns || die
+}
+
+function get_private_dns {
+  local instance_id=$1
+  local private_dns=$(aws ec2 describe-instances --instance-id=${instance_id})
+  echo $private_dns  | jq -r .Reservations[].Instances[].PrivateIpAddress
+  #| jq -r .Reservations[].Instances[].PublicDnsName)
+  #[[ ! -z $public_dns ]] && echo $public_dns || die
 }
 
 function connect_ec2 {
@@ -35,9 +43,11 @@ function terminate_ec2 {
 }
 
 ## END FUNCTIONS
-while getopts ":n:ct" opt; do
+while getopts ":n:cpt" opt; do
   case $opt in
     c) CONNECT=true
+      ;;
+    p) PRIVATE_IP=true
       ;;
     n) ASG_NAME=${OPTARG}
       ;;
@@ -50,11 +60,12 @@ done
 
 ## require asg name and single command
 [[ ! -z $ASG_NAME ]] && 
-  ( [[ $CONNECT ]] || [[ $TERMINATE ]] ) || usage
+  ( [[ $CONNECT ]] || [[ $TERMINATE ]] || [[ $PRIVATE_IP ]] ) || usage
 
 ## don't handle both commands
 ( [[ $CONNECT ]] && [[ $TERMINATE ]] ) && usage
 
 ## connect or terminate
 [[ $CONNECT ]] && connect_ec2 $ASG_NAME
+[[ $PRIVATE_IP ]] && get_private_dns $(get_instance_id $ASG_NAME)
 [[ $TERMINATE ]] && terminate_ec2 $(get_instance_id $ASG_NAME)
