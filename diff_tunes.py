@@ -1,89 +1,80 @@
 #!/usr/bin/env python
 
 ##
+## diff_tunes.py
 ## verify that my m4a and mp3 directories are in sync
+## takes optional full path of directory containing mp3 and m4a directories as argument
 ##
-
 import re
 import os
 import os.path
 import shutil
+import argparse
 
-## recursive function to build list of files
-def walkncount (basedir, extension, dirlist, filelist, parent=None):
-  ## simple function to count files 
-  ## location of mp3s and m4as
-  datahome = "/Users/cgough/Desktop/music"
+## functions
+def argue():
+  parser = argparse.ArgumentParser(description="Compare m4as and mp3s directories")
+  parser.add_argument("-d", "--datahome", default='/Users/cgough/Desktop/music', help="datahome")
+  args = parser.parse_args()
+  return args
 
-  os.chdir(basedir)
-  for file in os.listdir(basedir):
-    filepath = "%s/%s" % (basedir, file)
+def list_files(basedir, extension, filelist, parent=None):
+  ## simple function to walk directories and build lists of files and directories
+  os.chdir(f'{basedir}')
+  for file in sorted(os.listdir(f'{basedir}')):
+    ## we need to preserve path
+    filepath = f'{basedir}/{file}'
 
-    if re.search(("\." + re.escape(extension) + "$"), file):
-      myfile = re.sub(("\." + re.escape(extension) + "$"), '', file)             
-      mybasedir = re.sub(("^" + re.escape(datahome) + "/" + re.escape(extension) + "/"), '', basedir)             
-      filelist.append("%s/%s" % (mybasedir, myfile))
+    if not os.path.isdir(filepath):
+      if re.search((f'\.{extension}$'), file):
+        ## strip extension from filename
+        file = re.sub((f'\.{extension}$'), '', file)
+        ## strip basedir from filename
+        basedir = re.sub((f'^.*/{extension}/'), '', basedir)             
+        filelist.append(f'{basedir}/{file}')
 
-    ## if file is a directory
-    if os.path.isdir(filepath):
-      mydir = re.sub(("^" + re.escape(datahome) + "/" + re.escape(extension) + "/"), '', filepath)             
-      dirlist.append(mydir)
-      walkncount(filepath, extension, dirlist, filelist, basedir)
-  return dirlist, filelist
+    elif os.path.isdir(filepath):
+      filelist.append(re.sub((f'^.*/{extension}/'), '', filepath))
+      #filelist.append(filepath)
+      filelist = list_files(filepath, extension, filelist, basedir)
 
+  return filelist
 
-def diff_files(mp3s, m4as):
-  print("\n%s" % 'FILES ONLY FOUND IN MP3 FOLDER')
-  for file in mp3s:
-    if not file in m4as:
-      print("%s.mp3" % file)
-
-  print("\n%s" % 'FILES ONLY FOUND IN M4A FOLDER')
-  for file in m4as:
-    if not file in mp3s:
-      print("%s.m4a" % file)
-
-def diff_dirs(mp3d, m4ad):
-  print("\n%s" % "DIRS FOUND ONLY IN MP3 FOLDER")
-  for dir in mp3d:
-    if not dir in m4ad:
-      print(dir)
-
-  print("\n%s" % "DIRS FOUND ONLY IN M4A FOLDER")
-  for dir in m4ad:
-    if not dir in mp3d:
-      print(dir)
-
+def diff_files(a, b):
+  diff_list = []
+  for file in a:
+    if not file in b:
+      diff_list.append(f'{file}')
+  return diff_list      
 
 def main():
-  datahome = "/Users/cgough/Desktop/music"
+  args = argue()
+  ## we have a directory of m4a (apple lossless) files 
+  ## we have a directory of mp3 files which we have encoded from m4a files
+  ## the folders are named m4a and mp3 respectively
+  ## these folders should be in sync with the same number of files and directories
+  ## the filenames should be identical except for the extension (.m4a or .mp3)
+  mp3s, m4as, diff = ([] for i in range(3))
+  mp3s = list_files(f'{args.datahome}/mp3', 'mp3', mp3s)
+  m4as = list_files(f'{args.datahome}/m4a', 'm4a', m4as)
+  print(f'Total mp3 count: {len(mp3s)}')
+  print(f'Total m4a count: {len(m4as)}')
 
+  ## show differences between files and directories
   ## mp3s
-  dirlist = []
-  filelist = []
-
-  mp3 = []
-  mp3d = []
-  mp3s, mp3d = walkncount((datahome + '/mp3'), 'mp3', dirlist, filelist)
-
-  #mp3s = filelist
-  #mp3d = dirlist
-  print("TOTAL MP3 COUNT: %s" % len(mp3s))
-  print( "TOTAL MP3 DIRS: %s" % len(mp3d))
+  diff = diff_files(mp3s, m4as)
+  if len(diff) > 0:
+    print(f'Files present only in mp3 folder')
+    for file in diff:
+      print(f'present only in mp3 --> {file}')
 
   ## m4as
-  dirlist = []
-  filelist = []
-  m4ads = datahome + '/m4a'
-  #m4ads = '/Volumes/brukbento/music/m4a'
-  walkncount(m4ads, 'm4a', dirlist, filelist)
-  m4as = filelist
-  m4ad = dirlist
-  print( "TOTAL M4A COUNT: %s" % len(m4as))
-  print( "TOTAL M4A DIRS: %s" % len(m4ad))
+  diff = diff_files(m4as, mp3s)
+  if len(diff) > 0:
+    print(f'Files present only in m4a folder')
+    for file in diff:
+      print(f'present only in m4a --> {file}')
 
-  diff_dirs(mp3d, m4ad)
-
-####
+## end functions
 main()
 
