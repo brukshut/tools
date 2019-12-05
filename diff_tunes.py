@@ -12,6 +12,7 @@ import os
 import os.path
 import shutil
 import argparse
+from termcolor import colored, cprint
 
 ## functions
 def argue():
@@ -23,26 +24,30 @@ def argue():
   args = parser.parse_args()
   return args
 
-def list_files(basedir, extension, filelist, parent=None):
+def list_files(basedir, ext, filelist, parent=None):
   ## walk directories and build lists of files
   ## only count files that match given file extension
-  os.chdir(f'{basedir}')
+  if os.path.isdir(basedir):
+    os.chdir(f'{basedir}')
+  else:
+    sys.exit(f'{basedir} does not exit')
+  ## basedir exists
   for file in sorted(os.listdir(f'{basedir}')):
     ## we need to preserve path
     filepath = f'{basedir}/{file}'
     if not os.path.isdir(filepath):
-      if re.search((f'\.{extension}$'), file):
+      if re.search((f'\.{ext}$'), file):
         ## strip extension from filename
-        file = re.sub((f'\.{extension}$'), '', file)
+        file = re.sub((f'\.{ext}$'), '', file)
         ## strip basedir from filename
-        basedir = re.sub((f'^.*/{extension}/'), '', basedir)
+        basedir = re.sub((f'^.*/{ext}/'), '', basedir)
         filelist.append(f'file:{basedir}/{file}')
     ## if we are a directory
     elif os.path.isdir(filepath):
-      dirpath = re.sub((f'^.*/{extension}/'), '', filepath)
+      dirpath = re.sub((f'^.*/{ext}/'), '', filepath)
       filelist.append(f'directory:{dirpath}')
       ## recurse
-      filelist = list_files(filepath, extension, filelist, basedir)
+      filelist = list_files(filepath, ext, filelist, basedir)
   return filelist
 
 def file_walk(basedir, compdir):
@@ -64,11 +69,22 @@ def diff_files(list1, list2):
       diff.append(f'{file}')
   return diff
 
-def print_diff(ext, diff):
+def print_diff(dir, diff):
   if len(diff) > 0:
-    print(f'Files present only in {ext}:')
+    ## directory name is same as extension
+    ext = dir.split('/').pop()
+    cprint(f'\nFiles present only in {dir}:', 'red', attrs=['bold'])
+    #print(colored(f'\nFiles present only in {dir}:', 'red'))
     for file in diff:
-      print(f"present only in {ext} --> {file.split(':')[1]}")
+      ftype = file.split(':')[0]
+      if ftype == 'file':
+        fname = colored(f"{file.split(':')[1]}.{ext}", 'blue')
+        message = f"{dir} --> {fname}"
+        print(message)
+      elif ftype == 'directory':
+        fname = colored(f"{file.split(':')[1]}", 'green')
+        message = f"{dir} --> {fname}"
+        print(message)
 
 def main():
   args = argue()
@@ -77,8 +93,8 @@ def main():
   ext2 = args.compdir.split('/').pop()
   enc1, enc2 = file_walk(args.basedir, args.compdir)
   ## show differences between directories
-  print_diff(ext1, diff_files(enc1, enc2))
-  print_diff(ext2, diff_files(enc2, enc1))
+  print_diff(args.basedir, diff_files(enc1, enc2))
+  print_diff(args.compdir, diff_files(enc2, enc1))
 
 ## end functions
 main()
