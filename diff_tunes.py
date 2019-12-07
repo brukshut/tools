@@ -4,8 +4,12 @@
 ## diff_tunes.py
 ## file_walk with me
 ## verify that my m4a and mp3 directories are in sync
-## takes paths to two directories of encoded files
-## assumes directory names match file extension
+## I have several directories of encoded music files
+## I have mp3 files that have been encoded from m4a files
+## I keep multiple copies of these encoded files in different places
+## As I add new music these folders fall out of sync
+## This script will walk two directories and count files with a given extension
+## It will then diff the lists of files, ignoring the file extension
 ## 
 import re
 import os
@@ -52,13 +56,8 @@ def list_files(basedir, ext, filelist, parent=None):
   return filelist
 
 def file_walk(basedir, compdir, ext1, ext2):
-  ## we have several directories of encoded music files
-  ## we have mp3 directory containing mp3 files encoded from m4a files
-  ## these directories are named by file extension, i.e. "mp3" or "m4a"
-  ## these folders should be in sync with the exception of file extension
+  ## file_walk with me
   list1, list2 = ([] for i in range(2))
-  #ext1 = basedir.split('/').pop()
-  #ext2 = compdir.split('/').pop()
   list1 = list_files(basedir, ext1, list1)
   list2 = list_files(compdir, ext2, list2)
   return list1, list2
@@ -75,13 +74,13 @@ def print_diff(dir, diff, ext):
     cprint(f'\nFiles present only in {dir}:', 'red', attrs=['bold'])
     #print(colored(f'\nFiles present only in {dir}:', 'red'))
     for file in diff:
-      ftype = file.split(':')[0]
+      ftype, fname = file.split(':')
       if ftype == 'file':
-        fname = colored(f"{file.split(':')[1]}.{ext}", 'blue')
+        fname = colored(f"{fname}.{ext}", 'blue')
         message = f"{dir} --> {fname}"
         print(message)
       elif ftype == 'directory':
-        fname = colored(f"{file.split(':')[1]}", 'green')
+        fname = colored(f"{fname}", 'green')
         message = f"{dir} --> {fname}"
         print(message)
 
@@ -89,12 +88,10 @@ def main():
   args = argue()
   enc1, enc2, diff = ([] for i in range(3))
   ## arg format is ext:directory
-  ext1 = args.basedir.split(':')[0]
-  ext2 = args.compdir.split(':')[0]
-  basedir = args.basedir.split(':')[1]
-  compdir = args.compdir.split(':')[1]
-  enc1, enc2 = file_walk(basedir, compdir, ext1, ext2)
+  ext1, basedir = args.basedir.split(':')
+  ext2, compdir = args.compdir.split(':')
   ## show differences between directories
+  enc1, enc2 = file_walk(basedir, compdir, ext1, ext2)
   print_diff(basedir, diff_files(enc1, enc2), ext1)
   print_diff(compdir, diff_files(enc2, enc1), ext2)
 
