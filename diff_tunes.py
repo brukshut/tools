@@ -2,79 +2,101 @@
 
 ##
 ## diff_tunes.py
+## file_walk with me
 ## verify that my m4a and mp3 directories are in sync
-## takes optional full path of directory containing mp3 and m4a directories as argument
-##
+## takes paths to two directories of encoded files
+## assumes directory names match file extension
+## 
 import re
 import os
 import os.path
 import shutil
 import argparse
+import sys
+from termcolor import colored, cprint
 
 ## functions
 def argue():
-  parser = argparse.ArgumentParser(description="Compare m4as and mp3s directories")
-  parser.add_argument("-d", "--datahome", default='/Users/cgough/Desktop/music', help="datahome")
+  basedir = 'mp3:/Users/cgough/Desktop/music/mp3'
+  compdir = 'm4a:/Users/cgough/Desktop/music/m4a'
+  parser = argparse.ArgumentParser(description="Compare directories of encoded files")
+  parser.add_argument("-b", "--basedir", default=basedir, help=f'default: {basedir}')
+  parser.add_argument("-c", "--compdir", default=compdir, help=f'default: {compdir}')
   args = parser.parse_args()
   return args
 
-def list_files(basedir, extension, filelist, parent=None):
-  ## simple function to walk directories and build lists of files and directories
-  os.chdir(f'{basedir}')
+def list_files(basedir, ext, filelist, parent=None):
+  ## walk directories and build lists of files
+  ## only count files that match given file extension
+  if os.path.isdir(basedir):
+    os.chdir(f'{basedir}')
+  else:
+    sys.exit(f'{basedir} does not exit')
+  ## basedir exists
   for file in sorted(os.listdir(f'{basedir}')):
     ## we need to preserve path
     filepath = f'{basedir}/{file}'
-
     if not os.path.isdir(filepath):
-      if re.search((f'\.{extension}$'), file):
+      if re.search((f'\.{ext}$'), file):
         ## strip extension from filename
-        file = re.sub((f'\.{extension}$'), '', file)
+        file = re.sub((f'\.{ext}$'), '', file)
         ## strip basedir from filename
-        basedir = re.sub((f'^.*/{extension}/'), '', basedir)             
-        filelist.append(f'{basedir}/{file}')
-
+        basedir = re.sub((f'^.*/{ext}/'), '', basedir)
+        filelist.append(f'file:{basedir}/{file}')
+    ## if we are a directory
     elif os.path.isdir(filepath):
-      filelist.append(re.sub((f'^.*/{extension}/'), '', filepath))
-      #filelist.append(filepath)
-      filelist = list_files(filepath, extension, filelist, basedir)
-
+      dirpath = re.sub((f'^.*/{ext}/'), '', filepath)
+      filelist.append(f'directory:{dirpath}')
+      ## recurse
+      filelist = list_files(filepath, ext, filelist, basedir)
   return filelist
 
-def diff_files(a, b):
-  diff_list = []
-  for file in a:
-    if not file in b:
-      diff_list.append(f'{file}')
-  return diff_list      
+def file_walk(basedir, compdir, ext1, ext2):
+  ## we have several directories of encoded music files
+  ## we have mp3 directory containing mp3 files encoded from m4a files
+  ## these directories are named by file extension, i.e. "mp3" or "m4a"
+  ## these folders should be in sync with the exception of file extension
+  list1, list2 = ([] for i in range(2))
+  #ext1 = basedir.split('/').pop()
+  #ext2 = compdir.split('/').pop()
+  list1 = list_files(basedir, ext1, list1)
+  list2 = list_files(compdir, ext2, list2)
+  return list1, list2
+
+def diff_files(list1, list2):
+  diff = []
+  for file in list1:
+    if not file in list2:
+      diff.append(f'{file}')
+  return diff
+
+def print_diff(dir, diff, ext):
+  if len(diff) > 0:
+    cprint(f'\nFiles present only in {dir}:', 'red', attrs=['bold'])
+    #print(colored(f'\nFiles present only in {dir}:', 'red'))
+    for file in diff:
+      ftype = file.split(':')[0]
+      if ftype == 'file':
+        fname = colored(f"{file.split(':')[1]}.{ext}", 'blue')
+        message = f"{dir} --> {fname}"
+        print(message)
+      elif ftype == 'directory':
+        fname = colored(f"{file.split(':')[1]}", 'green')
+        message = f"{dir} --> {fname}"
+        print(message)
 
 def main():
   args = argue()
-  ## we have a directory of m4a (apple lossless) files 
-  ## we have a directory of mp3 files which we have encoded from m4a files
-  ## the folders are named m4a and mp3 respectively
-  ## these folders should be in sync with the same number of files and directories
-  ## the filenames should be identical except for the extension (.m4a or .mp3)
-  mp3s, m4as, diff = ([] for i in range(3))
-  mp3s = list_files(f'{args.datahome}/mp3', 'mp3', mp3s)
-  m4as = list_files(f'{args.datahome}/m4a', 'm4a', m4as)
-  print(f'Total mp3 count: {len(mp3s)}')
-  print(f'Total m4a count: {len(m4as)}')
-
-  ## show differences between files and directories
-  ## mp3s
-  diff = diff_files(mp3s, m4as)
-  if len(diff) > 0:
-    print(f'Files present only in mp3 folder')
-    for file in diff:
-      print(f'present only in mp3 --> {file}')
-
-  ## m4as
-  diff = diff_files(m4as, mp3s)
-  if len(diff) > 0:
-    print(f'Files present only in m4a folder')
-    for file in diff:
-      print(f'present only in m4a --> {file}')
+  enc1, enc2, diff = ([] for i in range(3))
+  ## arg format is ext:directory
+  ext1 = args.basedir.split(':')[0]
+  ext2 = args.compdir.split(':')[0]
+  basedir = args.basedir.split(':')[1]
+  compdir = args.compdir.split(':')[1]
+  enc1, enc2 = file_walk(basedir, compdir, ext1, ext2)
+  ## show differences between directories
+  print_diff(basedir, diff_files(enc1, enc2), ext1)
+  print_diff(compdir, diff_files(enc2, enc1), ext2)
 
 ## end functions
 main()
-
