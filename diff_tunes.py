@@ -12,12 +12,13 @@ import os
 import os.path
 import shutil
 import argparse
+import sys
 from termcolor import colored, cprint
 
 ## functions
 def argue():
-  basedir = '/Users/cgough/Desktop/music/mp3'
-  compdir = '/Users/cgough/Desktop/music/m4a'
+  basedir = 'mp3:/Users/cgough/Desktop/music/mp3'
+  compdir = 'm4a:/Users/cgough/Desktop/music/m4a'
   parser = argparse.ArgumentParser(description="Compare directories of encoded files")
   parser.add_argument("-b", "--basedir", default=basedir, help=f'default: {basedir}')
   parser.add_argument("-c", "--compdir", default=compdir, help=f'default: {compdir}')
@@ -50,14 +51,14 @@ def list_files(basedir, ext, filelist, parent=None):
       filelist = list_files(filepath, ext, filelist, basedir)
   return filelist
 
-def file_walk(basedir, compdir):
+def file_walk(basedir, compdir, ext1, ext2):
   ## we have several directories of encoded music files
   ## we have mp3 directory containing mp3 files encoded from m4a files
   ## these directories are named by file extension, i.e. "mp3" or "m4a"
   ## these folders should be in sync with the exception of file extension
   list1, list2 = ([] for i in range(2))
-  ext1 = basedir.split('/').pop()
-  ext2 = compdir.split('/').pop()
+  #ext1 = basedir.split('/').pop()
+  #ext2 = compdir.split('/').pop()
   list1 = list_files(basedir, ext1, list1)
   list2 = list_files(compdir, ext2, list2)
   return list1, list2
@@ -69,10 +70,8 @@ def diff_files(list1, list2):
       diff.append(f'{file}')
   return diff
 
-def print_diff(dir, diff):
+def print_diff(dir, diff, ext):
   if len(diff) > 0:
-    ## directory name is same as extension
-    ext = dir.split('/').pop()
     cprint(f'\nFiles present only in {dir}:', 'red', attrs=['bold'])
     #print(colored(f'\nFiles present only in {dir}:', 'red'))
     for file in diff:
@@ -89,12 +88,15 @@ def print_diff(dir, diff):
 def main():
   args = argue()
   enc1, enc2, diff = ([] for i in range(3))
-  ext1 = args.basedir.split('/').pop()
-  ext2 = args.compdir.split('/').pop()
-  enc1, enc2 = file_walk(args.basedir, args.compdir)
+  ## arg format is ext:directory
+  ext1 = args.basedir.split(':')[0]
+  ext2 = args.compdir.split(':')[0]
+  basedir = args.basedir.split(':')[1]
+  compdir = args.compdir.split(':')[1]
+  enc1, enc2 = file_walk(basedir, compdir, ext1, ext2)
   ## show differences between directories
-  print_diff(args.basedir, diff_files(enc1, enc2))
-  print_diff(args.compdir, diff_files(enc2, enc1))
+  print_diff(basedir, diff_files(enc1, enc2), ext1)
+  print_diff(compdir, diff_files(enc2, enc1), ext2)
 
 ## end functions
 main()
