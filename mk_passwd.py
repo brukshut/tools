@@ -6,11 +6,13 @@
 import argparse
 import random
 import string
+import re
 
 ## main
 def randomString(length):
   """Generate a random string of fixed length """
   letters = f'{string.digits}{string.ascii_uppercase}{string.ascii_lowercase}{string.punctuation}'
+  letters = re.sub('[\\\/\[\]\{\}\(\)]', '', letters)
   return ''.join(random.choice(letters) for i in range(int(length)))
 
 def argue():
