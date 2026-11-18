@@ -54,3 +54,29 @@ Generates a 4096 bit rsa key, a certificate signing request and a self signed ce
 [brukbook.local:~] brukshut% ./make_cert.sh
 Usage: ./make_cert.sh -c [commonname]
 ```
+
+## mk_passwd.py
+
+Generates cryptographically secure random strings (uses Python's `secrets` module). By default it prints one 32-character string containing at least one lowercase letter, uppercase letter, digit and special character. The characters `\/[]{}()` are left out of the default special set because they often need escaping.
+
+```
+./mk_passwd.py                          # 32 chars, all classes
+./mk_passwd.py -l 64 -S                 # 64 chars, no special characters
+./mk_passwd.py -x '$`"'\''' -n 5          # 5 passwords, stripping shell-hostile characters
+./mk_passwd.py --special-chars '!@#-_' -A   # custom special set, no look-alike characters
+./mk_passwd.py -l 40 --hex              # hex token
+./mk_passwd.py -r -l 16                 # readable: e.g. CQgu-Rf5n-RBzm-VJU9
+```
+
+`-r/--readable` produces output that is easy to read aloud or type from a screen. It leaves out look-alike characters (`0 O o 1 l I |` and quotes) and special characters, and splits the result into dash-separated groups of 4. Use `-g N` to change the group size (`-g 0` turns grouping off) and `--separator` to change the separator. `--length` counts only the random characters, not the separators. To keep some special characters in readable mode, list them with `--special-chars`.
+
+`-p/--passphrase` generates a passphrase of random words instead, such as `confound-rasping-moneyless-recoup-borrowing-affirm`. The default is 6 words (about 77 bits of entropy). Change the count with `-w N`, the joining character with `--separator`, and add `-C` to capitalize each word or `--with-number` to put one random digit on one word. These help when a password policy requires uppercase letters or digits. Use `--wordlist PATH` to supply your own list, one word per line.
+
+```
+./mk_passwd.py -p                       # frozen-pacifism-unequal-hurdle-unending-unflawed
+./mk_passwd.py -p -w 5 -C --with-number --separator .   # Unison.Camping.Unleveled.Company3.Posting
+```
+
+The default wordlist, `wordlists/eff_large_wordlist.txt`, is the [EFF Large Wordlist](https://www.eff.org/dice) by the Electronic Frontier Foundation, licensed under [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/). Keep the `wordlists/` directory next to the script.
+
+Run `./mk_passwd.py -h` for all options.
